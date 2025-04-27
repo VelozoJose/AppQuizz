@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+  <title>QuizMath Concursos</title>
+  <!-- Tailwind CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <!-- Font Awesome -->
+  <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.2/css/all.min.css" rel="stylesheet">
+  <!-- Google Fonts: Inter -->
+  <link href="https://cdn.jsdelivr.net/npm/@fontsource/inter@3.3.1/index.css" rel="stylesheet">
+  <style>
+    html {
+      font-family: 'Inter', Arial, Helvetica, sans-serif;
+      background: #f4f4f5;
+      color: #18181b;
+    }
+    /* Mobile "frame" */
+    .app-frame {
+      max-width: 420px;
+      margin: 2rem auto;
+      border-radius: 2.5rem;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.13);
+      background: #fff;
+      border: 2px solid #e5e7eb;
+      overflow: visible;
+      padding: 0;
+      min-height: 85vh;
+    }
+    /* Hide scroll for PDF export, let page expand */
+    body {
+      overflow-x: hidden;
+    }
+    /* For sticky progress bar */
+    .sticky-top {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: #fff;
+    }
+    /* PDF-friendly: Ensure no inner scrolls */
+    .overflow-y-auto, .overflow-x-auto {
+      overflow: visible !important;
+    }
+    /* Hide chart legend for PDF compactness */
+    .chartjs-legend {
+      display: none;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="app-frame shadow-lg border mx-auto my-6">
+    <!-- App Header -->
+    <div class="sticky-top px-6 py-4 flex items-center justify-between border-b bg-white rounded-t-3xl">
+      <div class="flex items-center space-x-2">
+        <i class="fas fa-calculator text-indigo-600 text-xl"></i>
+        <span class="text-xl font-bold tracking-tight">QuizMath Concursos</span>
+      </div>
+      <button 
+        id="dashboardBtn"
+        class="bg-indigo-500 hover:bg-indigo-700 text-white rounded-full p-2 transition"
+        title="Ver Estatísticas"
+        aria-label="Ver Estatísticas"
+      >
+        <i class="fas fa-chart-bar"></i>
+      </button>
+    </div>
+
+    <!-- View Containers -->
+    <div id="view-quiz" class="px-6 pt-4 pb-8">
+      <form class="mb-4 flex flex-wrap gap-2 justify-center text-sm font-medium">
+        <button type="button" data-cat="all" class="category-btn py-1.5 px-4 rounded-xl border border-indigo-200 bg-indigo-500 text-white transition font-semibold">Todas</button>
+        <button type="button" data-cat="Aritmética" class="category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900">Aritmética</button>
+        <button type="button" data-cat="Álgebra" class="category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900">Álgebra</button>
+        <button type="button" data-cat="Geometria" class="category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900">Geometria</button>
+        <button type="button" data-cat="Raciocínio Lógico-Quantitativo" class="category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900">Racíoc. Lógico</button>
+        <button type="button" data-cat="Matemática Financeira" class="category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900">Mat. Financeira</button>
+      </form>
+      <div id="question-card" class="mx-auto max-w-md bg-white rounded-2xl shadow p-6 transition">
+        <!-- Rendered dynamically -->
+      </div>
+      <div class="flex gap-2 justify-between mt-6 mb-2">
+        <button id="prevBtn" class="flex-1 bg-gray-200 text-gray-600 rounded-lg px-4 py-2 font-semibold transition disabled:opacity-50" disabled>
+          <i class="fas fa-chevron-left"></i> Anterior
+        </button>
+        <button id="nextBtn" class="flex-1 bg-indigo-500 text-white rounded-lg px-4 py-2 font-semibold transition">
+          Próxima <i class="fas fa-chevron-right"></i>
+        </button>
+      </div>
+      <div class="flex justify-center items-center gap-4 pt-4 mt-4 border-t">
+        <button id="historyBtn" class="flex items-center gap-2 text-sm text-indigo-700 font-medium px-3 py-1.5 rounded hover:bg-indigo-100 transition">
+          <i class="fas fa-history"></i> Histórico
+        </button>
+        <button id="resetBtn" class="flex items-center gap-2 text-sm text-red-500 font-medium px-3 py-1.5 rounded hover:bg-red-50 transition">
+          <i class="fas fa-redo"></i> Reiniciar Tudo
+        </button>
+      </div>
+    </div>
+
+    <!-- Dashboard View -->
+    <div id="view-dashboard" class="px-6 pt-4 pb-8 hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-chart-bar text-indigo-600"></i> Estatísticas</h2>
+        <button id="backToQuizBtn" class="bg-gray-200 text-gray-700 rounded-full p-2 hover:bg-gray-300" title="Voltar Quiz"><i class="fas fa-arrow-left"></i></button>
+      </div>
+      <div class="grid grid-cols-1 gap-5 mb-4">
+        <div class="bg-gray-50 rounded-xl p-5 flex flex-col items-center">
+          <div class="text-3xl font-bold" id="stat-acertos">0%</div>
+          <div class="text-gray-600 text-sm">Taxa de acertos geral</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-5 flex flex-col items-center">
+          <div id="stat-evolucao" class="w-full min-h-[84px]">
+            <canvas id="chart-evolucao" height="48"></canvas>
+          </div>
+          <div class="text-gray-600 text-sm pt-1">Evolução de desempenho</div>
+        </div>
+      </div>
+      <div class="mb-8">
+        <h3 class="font-semibold pt-2 pb-1">Taxa de acertos por categoria:</h3>
+        <canvas id="chart-categorias" height="48"></canvas>
+      </div>
+      <div class="mb-8">
+        <h3 class="font-semibold pt-2 pb-1">Perguntas mais difíceis (maior taxa de erro):</h3>
+        <ul id="difficult-questions-list" class="list-inside list-disc text-sm pl-4"></ul>
+      </div>
+      <div class="mb-8">
+        <h3 class="font-semibold pt-2 pb-1">Tempo médio de resposta por categoria:</h3>
+        <canvas id="chart-tempo" height="48"></canvas>
+      </div>
+      <div class="mb-3">
+        <h3 class="font-semibold pt-2 pb-1">Perfil de pontos fortes e fracos:</h3>
+        <div id="strengths-weaknesses" class="text-sm"></div>
+      </div>
+    </div>
+
+    <!-- Histórico View -->
+    <div id="view-history" class="px-6 pt-4 pb-8 hidden">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xl font-bold flex items-center gap-2"><i class="fas fa-history text-indigo-600"></i> Histórico</h2>
+        <button id="backToQuizBtn2" class="bg-gray-200 text-gray-700 rounded-full p-2 hover:bg-gray-300" title="Voltar Quiz"><i class="fas fa-arrow-left"></i></button>
+      </div>
+      <div id="history-container" class="bg-gray-50 rounded-xl px-2 py-3">
+        <!-- Histórico é renderizado aqui -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+/** Perguntas estruturadas */
+const questions = [
+  // --- Aritmética
+  {
+    id: 1, category: "Aritmética", 
+    text: "Uma loja oferece um desconto de 15% em um produto que custa R$ 80,00. Qual o valor do produto com o desconto?",
+    options: ["R$ 65,00", "R$ 68,00", "R$ 70,00", "R$ 72,00", "R$ 75,00"],
+    answer: 1, difficulty: "Fácil"
+  },
+  {
+    id: 2, category: "Aritmética",
+    text: "João leu 3/5 de um livro. Se o livro tem 200 páginas, quantas páginas João ainda precisa ler para terminar o livro?",
+    options: ["40", "60", "80", "100", "120"],
+    answer: 2, difficulty: "Fácil"
+  },
+  {
+    id: 3, category: "Aritmética",
+    text: "Três torneiras idênticas, abertas ao mesmo tempo, enchem um tanque em 5 horas. Se apenas duas dessas torneiras forem abertas, em quanto tempo elas encherão o mesmo tanque?",
+    options: ["6 horas e 30 minutos", "7 horas", "7 horas e 30 minutos", "8 horas", "10 horas"],
+    answer: 2, difficulty: "Médio"
+  },
+  {
+    id: 4, category: "Aritmética",
+    text: "Um capital de R$ 1.200,00 foi aplicado a juros simples com uma taxa de 2% ao mês. Qual o montante obtido após 6 meses?",
+    options: ["R$ 1.272,00", "R$ 1.300,00", "R$ 1.344,00", "R$ 1.360,40", "R$ 144,00"],
+    answer: 2, difficulty: "Médio"
+  },
+  // --- Álgebra
+  {
+    id: 5, category: "Álgebra",
+    text: "Qual o valor de x na equação 3x - 7 = 11?",
+    options: ["3", "4", "5", "6", "18/3"],
+    answer: 3, difficulty: "Fácil"
+  },
+  {
+    id: 6, category: "Álgebra",
+    text: "A soma de dois números é 30 e a diferença entre eles é 6. Quais são esses números?",
+    options: ["10 e 20", "12 e 18", "14 e 16", "11 e 19", "13 e 17"],
+    answer: 1, difficulty: "Médio"
+  },
+  {
+    id: 7, category: "Álgebra",
+    text: "Qual o conjunto solução da inequação 2x + 5 > 15?",
+    options: ["x < 5", "x > 5", "x < 10", "x > 10", "x = 5"],
+    answer: 1, difficulty: "Fácil"
+  },
+  {
+    id: 8, category: "Álgebra",
+    text: "O dobro de um número, somado com 5, é igual a 25. Que número é esse?",
+    options: ["5", "10", "15", "20", "12.5"],
+    answer: 1, difficulty: "Fácil"
+  },
+  // --- Geometria
+  {
+    id: 9, category: "Geometria",
+    text: "Um terreno retangular tem 25 metros de comprimento e 12 metros de largura. Qual a área total desse terreno?",
+    options: ["74 m²", "150 m²", "300 m²", "37 m²", "600 m²"],
+    answer: 2, difficulty: "Fácil"
+  },
+  {
+    id: 10, category: "Geometria",
+    text: "Qual o perímetro de um quadrado cujo lado mede 7 cm?",
+    options: ["14 cm", "21 cm", "28 cm", "49 cm", "7 cm"],
+    answer: 2, difficulty: "Fácil"
+  },
+  {
+    id: 11, category: "Geometria",
+    text: "Um triângulo retângulo tem catetos medindo 6 cm e 8 cm. Qual a medida da hipotenusa?",
+    options: ["14 cm", "48 cm", "100 cm", "10 cm", "12 cm"],
+    answer: 3, difficulty: "Médio"
+  },
+  {
+    id: 12, category: "Geometria",
+    text: "Qual o volume de um cubo com aresta medindo 4 cm?",
+    options: ["12 cm³", "16 cm³", "48 cm³", "64 cm³", "24 cm³"],
+    answer: 3, difficulty: "Médio"
+  },
+  // --- Raciocínio Lógico-Quantitativo
+  {
+    id: 13, category: "Raciocínio Lógico-Quantitativo",
+    text: "Observe a sequência: 2, 5, 10, 17, 26, ... Qual o próximo número dessa sequência?",
+    options: ["35", "36", "37", "38", "39"],
+    answer: 2, difficulty: "Médio"
+  },
+  {
+    id: 14, category: "Raciocínio Lógico-Quantitativo",
+    text: "Em uma urna há 5 bolas vermelhas, 3 bolas azuis e 2 bolas verdes. Qual a probabilidade de, ao retirar uma bola ao acaso, ela ser azul?",
+    options: ["1/10", "2/10 (ou 1/5)", "3/10", "5/10 (ou 1/2)", "3/7"],
+    answer: 2, difficulty: "Fácil"
+  },
+  {
+    id: 15, category: "Raciocínio Lógico-Quantitativo",
+    text: "Se todo A é B, e algum C é A, então podemos concluir que:",
+    options: ["Todo C é B.", "Nenhum C é B.", "Algum C é B.", "Todo B é C.", "Nenhum A é C."],
+    answer: 2, difficulty: "Médio"
+  },
+  {
+    id: 16, category: "Raciocínio Lógico-Quantitativo",
+    text: "De quantas maneiras diferentes 3 amigos podem sentar-se em um banco com 3 lugares?",
+    options: ["3", "6", "9", "1", "27"],
+    answer: 1, difficulty: "Médio"
+  },
+  // --- Matemática Financeira
+  {
+    id: 17, category: "Matemática Financeira",
+    text: "Um produto teve um aumento de 10% e, em seguida, um desconto de 10% sobre o novo preço. Em relação ao preço original, o preço final é:",
+    options: ["O mesmo", "1% maior", "1% menor", "10% menor", "10% maior"],
+    answer: 2, difficulty: "Difícil"
+  },
+  {
+    id: 18, category: "Matemática Financeira",
+    text: "Qual o montante de uma aplicação de R$ 5.000,00 a juros compostos de 1% ao mês, durante 2 meses?",
+    options: ["R$ 5.100,00", "R$ 5.100,50", "R$ 5.101,00", "R$ 5.200,00", "R$ 5.050,00"],
+    answer: 1, difficulty: "Médio"
+  }
+];
+
+// App State
+let currentCategory = 'all'; // 'all' or category name
+let currentQuestionIdx = 0; // index in filtered array
+let questionOrder = []; // indexes into QUESTIONS
+let userResponses = []; // [{questionId, selected, correct, timeSeconds}]
+let quizStarted = false;
+let timerStart = 0; // timestamp in ms
+let currentTimer = null;
+
+// Persistent storage keys
+const STORAGE_KEY_RESPONSES = 'quizmath_responses_v1';
+// Helper: Salva histórico no localStorage
+function saveHistory() {
+  localStorage.setItem(STORAGE_KEY_RESPONSES, JSON.stringify(userResponses));
+}
+function loadHistory() {
+  const data = localStorage.getItem(STORAGE_KEY_RESPONSES);
+  if (data) {
+    userResponses = JSON.parse(data);
+  }
+}
+
+// Helper: Gera nova ordem das perguntas (embaralhada)
+function shuffleQuestions(filteredQuestions) {
+  let arr = [...filteredQuestions.keys()];
+  for (let i = arr.length - 1; i > 0; i--) {
+    let j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Util: filtra perguntas pela categoria
+function getFilteredQuestions(cat) {
+  if (cat === 'all') return questions;
+  return questions.filter(q => q.category === cat);
+}
+
+// UI: Atualiza os botões de categoria
+function updateCategoryButtons(cat) {
+  document.querySelectorAll(".category-btn").forEach(btn => {
+    if (btn.dataset.cat === cat) {
+      btn.className = "category-btn py-1.5 px-4 rounded-xl border border-indigo-200 bg-indigo-500 text-white transition font-semibold";
+    } else {
+      btn.className = "category-btn py-1.5 px-4 rounded-xl border border-gray-200 bg-gray-100 text-gray-900";
+    }
+  });
+}
+
+// Inicia o quiz para uma categoria
+function startQuizForCategory(cat, preserveProgress=false) {
+  currentCategory = cat;
+  updateCategoryButtons(cat);
+  const filtered = getFilteredQuestions(currentCategory);
+  questionOrder = shuffleQuestions(filtered);
+  if (!preserveProgress) {
+    currentQuestionIdx = 0;
+    userResponses = [];
+    saveHistory();
+  }
+  quizStarted = true;
+  renderQuestion();
+}
+
+// Renderiza a pergunta atual
+function renderQuestion() {
+  // Busca perguntas filtradas
+  const filtered = getFilteredQuestions(currentCategory);
+  if (questionOrder.length !== filtered.length) {
+    questionOrder = shuffleQuestions(filtered);
+  }
+  // Validar idx
+  if (currentQuestionIdx < 0) currentQuestionIdx = 0;
+  if (currentQuestionIdx >= filtered.length) currentQuestionIdx = filtered.length - 1;
+  const idx = questionOrder[currentQuestionIdx];
+  const q = filtered[idx];
+
+  // Busca resposta anterior
+  let prevResp = userResponses.find(r => r.questionId === q.id);
+  let timeElapsed = prevResp && prevResp.timeSeconds ? prevResp.timeSeconds : 0;
+
+  // Render card
+  let html = "";
+  html += `<div class="flex justify-between items-center mb-1">
+    <span class="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-0.5 rounded">${q.category}</span>
+    <span class="text-xs text-gray-500">Nível: ${q.difficulty}</span>
+  </div>`;
+  html += `<div class="text-md md:text-lg font-semibold mb-3 py-1">${q.text}</div>`;
+  html += `<div><form id="quizOptions" data-qid="${q.id}">`;
+  q.options.forEach((opt, i) => {
+    const checked = prevResp && prevResp.selected === i ? 'checked' : '';
+    const isCorrect = prevResp && prevResp.selected === i && prevResp.correct;
+    const isIncorrect = prevResp && prevResp.selected === i && !prevResp.correct;
+    html += `
+      <label class="block mb-2 cursor-pointer">
+        <input type="radio" name="opt" value="${i}" class="mr-2 align-middle" ${checked} ${prevResp ? "disabled" : ''}>
+        <span class="align-middle">
+          ${opt}
+          ${isCorrect ? '<span class="ml-2 text-green-600 font-bold"><i class="fas fa-check-circle"></i> Correto!</span>' : ''}
+          ${isIncorrect ? '<span class="ml-2 text-red-500 font-semibold"><i class="fas fa-times-circle"></i> Incorreto</span>' : ''}
+        </span>
+      </label>
+    `;
+  });
+  html += `</form></div>`;
+  // Tempo de resposta e botão de corrigir
+  html += `<div class="flex items-center justify-between mt-3 mb-1 text-xs">
+      <div>
+        <i class="fas fa-stopwatch"></i>
+        <span id="timerVal">${prevResp ? timeElapsed+"s" : "0s"}</span>
+      </div>
+      ${prevResp ? `
+        <span class="${prevResp.correct ? "text-green-600" : "text-red-500"} font-bold">${prevResp.correct ? "Acertou!" : "Errou!"}</span>
+      ` : `
+        <button type="button" id="submitAnswerBtn" class="bg-indigo-500 text-white font-semibold px-5 py-1.5 rounded-lg hover:bg-indigo-700 transition">Responder</button>
+      `}
+    </div>
+    <div class="w-full h-2 bg-gray-100 rounded mb-3 mt-2 overflow-hidden">
+      <div class="h-2 rounded transition-all" style="background:#6366f1; width:${(currentQuestionIdx+1)/filtered.length*100}%;"></div>
+    </div>
+    <div class="text-center text-xs text-gray-500 pb-1">Pergunta ${currentQuestionIdx+1} de ${filtered.length}</div>
+  `;
+  document.getElementById("question-card").innerHTML = html;
+  // Atualiza navegação quiz
+  document.getElementById("prevBtn").disabled = (currentQuestionIdx === 0);
+  document.getElementById("nextBtn").innerHTML =
+    currentQuestionIdx === filtered.length - 1
+    ? "Finalizar <i class='fas fa-trophy'></i>"
+    : "Próxima <i class='fas fa-chevron-right'></i>";
+  // Timer
+  clearInterval(currentTimer);
+  if (!prevResp) {
+    timerStart = Date.now();
+    currentTimer = setInterval(() => {
+      const diff = Math.floor((Date.now() - timerStart) / 1000);
+      document.getElementById("timerVal").textContent = diff + "s";
+    }, 300);
+  }
+}
+
+// Trata resposta do usuário
+function submitAnswer() {
+  const qForm = document.getElementById("quizOptions");
+  if (!qForm) return;
+  let form = new FormData(qForm);
+  let selected = form.get("opt");
+  if (selected === null || selected === undefined) {
+    alert("Selecione uma opção antes de responder!");
+    return;
+  }
+  selected = parseInt(selected);
+  const qid = parseInt(qForm.dataset.qid);
+  const q = questions.find(qs => qs.id === qid);
+  const correct = selected === q.answer;
+  const timeSeconds = Math.max(1, Math.floor((Date.now() - timerStart) / 1000));
+  // Evitar múltiplas respostas
+  if (userResponses.find(r => r.questionId === qid)) return;
+  userResponses.push({questionId: qid, selected, correct, timeSeconds, when: Date.now()});
+  saveHistory();
+  renderQuestion();
+}
+
+// Troca de categoria
+document.querySelectorAll(".category-btn").forEach(btn => {
+  btn.addEventListener("click", e => {
+    const cat = btn.dataset.cat;
+    startQuizForCategory(cat);
+  });
+});
+// Navegação
+document.getElementById("prevBtn").addEventListener("click", () => {
+  if (currentQuestionIdx > 0) {
+    currentQuestionIdx--;
+    renderQuestion();
+  }
+});
+document.getElementById("nextBtn").addEventListener("click", () => {
+  const filtered = getFilteredQuestions(currentCategory);
+  if (currentQuestionIdx < filtered.length - 1) {
+    currentQuestionIdx++;
+    renderQuestion();
+  } else {
+    // Última: Força dashboard
+    showDashboard();
+  }
+});
+// Responder (delegado)
+document.getElementById("question-card").addEventListener("click", function(e){
+  if (e.target && e.target.id === "submitAnswerBtn") {
+    submitAnswer();
+    clearInterval(currentTimer);
+  }
+});
+
+// Reiniciar tudo
+document.getElementById("resetBtn").addEventListener("click", () => {
+  if (confirm("Deseja reiniciar todo o progresso e estatísticas?")) {
+    userResponses = [];
+    saveHistory();
+    startQuizForCategory(currentCategory, false);
+  }
+});
+
+// Histórico
+document.getElementById("historyBtn").addEventListener("click", () => {
+  document.getElementById("view-quiz").classList.add("hidden");
+  renderHistory();
+  document.getElementById("view-history").classList.remove("hidden");
+});
+document.getElementById("backToQuizBtn2").addEventListener("click", () => {
+  document.getElementById("view-history").classList.add("hidden");
+  document.getElementById("view-quiz").classList.remove("hidden");
+});
+
+// Estatísticas / dashboard
+document.getElementById("dashboardBtn").addEventListener("click", showDashboard);
+document.getElementById("backToQuizBtn").addEventListener("click", () => {
+  document.getElementById("view-dashboard").classList.add("hidden");
+  document.getElementById("view-quiz").classList.remove("hidden");
+});
+
+/** DASHBOARD */
+// Gerais
+function showDashboard() {
+  document.getElementById("view-quiz").classList.add("hidden");
+  document.getElementById("view-history").classList.add("hidden");
+  renderDashboard();
+  document.getElementById("view-dashboard").classList.remove("hidden");
+}
+function renderDashboard() {
+  // Estatísticas Gerais
+  let acertos = userResponses.filter(r => r.correct).length;
+  let totalResp = userResponses.length;
+  let taxaAcertos = totalResp ? Math.round(acertos/totalResp*100) : 0;
+  document.getElementById("stat-acertos").textContent = taxaAcertos+"%";
+
+  // Por categoria
+  let catStats = {};
+  questions.forEach(q=>{
+    if (!catStats[q.category]) catStats[q.category] = {right:0,total:0,time:0,answered:0};
+    let r = userResponses.find(rr=>rr.questionId === q.id);
+    if (r) {
+      catStats[q.category].total++;
+      catStats[q.category].time += r.timeSeconds;
+      catStats[q.category].answered++;
+      if (r.correct) catStats[q.category].right++;
+    }
+  });
+  // Monta dados pro gráfico
+  let labels = Object.keys(catStats);
+  let rateData = labels.map(cat => {
+    let cs = catStats[cat];
+    return cs.total ? Math.round(cs.right/cs.total*100) : 0;
+  });
+  let timeData = labels.map(cat => {
+    let cs = catStats[cat];
+    return cs.answered ? (cs.time/cs.answered).toFixed(1) : 0;
+  });
+
+  // Perguntas mais difíceis
+  let qDificil = [];
+  for(const q of questions){
+    let resp = userResponses.find(r=>r.questionId === q.id);
+    if(resp) qDificil.push({
+      id: q.id, text:q.text, correct: resp.correct,
+      rate: resp.correct?0:1  // Para um usuário só
+    });
+  }
+  qDificil = qDificil
+    .map(qd => ({
+      ...qd,
+      gabarito: questions.find(q=>q.id===qd.id).options[questions.find(q=>q.id===qd.id).answer]
+    }))
+    .filter(qd=>qd.rate>0)
+    .sort((a,b)=>b.rate-a.rate)
+    .slice(0,3);
+
+  let ul = document.getElementById('difficult-questions-list');
+  if (qDificil.length === 0) {
+    ul.innerHTML = "<li class='text-gray-500'>Nenhuma pergunta errada ainda.</li>";
+  } else {
+    ul.innerHTML = qDificil.map(qd=>`
+      <li class="mb-2">
+        <span class="font-semibold">${qd.text}</span>
+        <span class="block text-xs mt-1 text-gray-500">Resposta correta: <span class="font-bold">${qd.gabarito}</span></span>
+      </li>
+    `).join('');
+  }
+
+  // Radar de pontos fortes/fracos
+  let strengths = [];
+  let weaknesses = [];
+  let limForte = 75, limFraco = 50;
+  labels.forEach((cat,i) => {
+    if (rateData[i]>=limForte) strengths.push(cat);
+    else if (rateData[i]>0 && rateData[i]<=limFraco) weaknesses.push(cat);
+  });
+  let prof = '';
+  if (strengths.length)
+    prof += '<span class="text-green-700 font-semibold">Fortes: </span>'+strengths.join(', ')+'<br>';
+  if (weaknesses.length)
+    prof += '<span class="text-red-700 font-semibold">Fracos: </span>'+weaknesses.join(', ');
+  if (!prof) prof = '<span class="text-gray-700">Nenhuma tendência clara detectada.</span>';
+  document.getElementById("strengths-weaknesses").innerHTML = prof;
+
+  // Evolução do desempenho (acertos ao longo do tempo)
+  let tLabels = [];
+  let tRates = [];
+  let acc = 0;
+  userResponses.forEach((r, idx)=>{
+    acc += r.correct ? 1 : 0;
+    tLabels.push(idx+1);
+    tRates.push(Math.round(acc/(idx+1)*100));
+  });
+  // Por categoria charts
+  setTimeout(()=>{
+    renderBarChart('chart-categorias', labels, rateData, 'Taxa de acerto (%)');
+    renderBarChart('chart-tempo', labels, timeData, 'Tempo médio (s)', '#EA580C');
+    renderLineChart('chart-evolucao', tLabels, tRates, 'Acertos (%)');
+  },210);
+}
+
+/* Simple bar or line charts */
+function renderBarChart(canvasId, labels, data, label, color='#6366f1') {
+  let el = document.getElementById(canvasId);
+  if (!el) return;
+  if (el.chartjs) { el.chartjs.destroy(); }
+  el.chartjs = new Chart(el, {
+    type: "bar",
+    data: { labels: labels, datasets: [{ label: label, data: data, backgroundColor: color }] },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false }, title: { display:false } },
+      scales: { y: { min:0, max:100, ticks:{stepSize:25} } }
+    }
+  });
+}
+function renderLineChart(canvasId, labels, data, label) {
+  let el = document.getElementById(canvasId);
+  if (!el) return;
+  if (el.chartjs) { el.chartjs.destroy(); }
+  el.chartjs = new Chart(el, {
+    type: "line",
+    data: {labels, datasets:[{
+      label,
+      data,
+      fill: false,
+      borderColor: "#6366f1",
+      tension: 0.2,
+      pointRadius:3,
+      backgroundColor:"#6366f1"
+    }]},
+    options: {
+      responsive:true,
+      plugins:{legend:{display:false}, title:{display:false}},
+      interaction: { mode: 'index', intersect: false },
+      scales:{ y:{ min:0, max:100, ticks:{stepSize:25} } }
+    }
+  });
+}
+
+/** HISTÓRICO */
+function renderHistory() {
+  let html = "";
+  if (!userResponses.length) {
+    html = "<div class='text-gray-600 text-center py-6'>Ainda não há histórico. Faça pelo menos uma pergunta no quiz.</div>";
+  } else {
+    let arr = userResponses
+      .map(ur=>{
+        const q = questions.find(q=>q.id===ur.questionId);
+        return Object.assign({}, ur, {
+          qText: q.text,
+          qCategory: q.category,
+          qDifficulty: q.difficulty,
+          correctAnswer: q.options[q.answer],
+          chosenAnswer: q.options[ur.selected]
+        });
+      }).sort((a,b)=>a.when-b.when);
+    html = "<table class='min-w-full text-xs'><thead><tr class='text-gray-800 font-bold'><th class='p-1 text-left'>Pergunta</th><th>Resp.</th><th>Correta</th><th>Tempo(s)</th></tr></thead><tbody>";
+    html += arr.map(r=>`
+      <tr class='border-b text-sm ${r.correct?'bg-green-50':'bg-red-100'}'>
+        <td class='py-1 align-top'>
+          <span class="text-xs text-indigo-700 bg-indigo-100 rounded px-1">${r.qCategory}</span><br>
+          <span>${r.qText}</span>
+        </td>
+        <td class='py-1 ${r.correct?'text-green-600':'text-red-500'}'>
+          ${r.chosenAnswer}
+        </td>
+        <td class='py-1'>${r.correctAnswer}</td>
+        <td class='py-1 text-center'>${r.timeSeconds}</td>
+      </tr>
+    `).join('');
+    html += "</tbody></table>";
+  }
+  document.getElementById("history-container").innerHTML = html;
+}
+
+/** INICIALIZAÇÃO */
+window.onload = function() {
+  loadHistory();
+  // Inicial com categoria 'all' e progresso preservado
+  startQuizForCategory('all', true);
+};
+
+  </script>
+</body>
+</html>
+
+    <script id="html_badge_script1">
+        window.__genspark_remove_badge_link = "https://www.genspark.ai/api/html_badge/" +
+            "remove_badge?token=To%2FBnjzloZ3UfQdcSaYfDln3fHFOPLqNDrlksTAphQFTMIhcoQCcVY0SaS4KlTsXBQ0QqLkKPd%2Fx2rtR8GWCVcMoBsl0UjsS0q%2Fn%2FnIy8XMqildihm39w35RyhnPawAq2j8wv4i5tv08IHA%2FyIVrL6WBqr%2BWyBfa1tGKCr2mzoSYm7x43%2BX2vuUeGrOH1%2BVoC47hxURK%2Fl%2BcZXqEmiklRgLr2ncS%2FQk5Gv%2F8v1GDcuGNIYGV7ZHz98duyd82me4NDcw9xmQM4XWOYoPPyAAfmVDnc%2F%2BkBTAdPcIhcxdKZ3n9fKGcLYpAQWSlFSubN%2Bt44Pyhlz%2FPw7fYRVU9yJaA%2BLMNlm5FoAwT1C9YlZYjjbP93aUhmgi00xOYEBVRAf2FoiZaZeMwbgrCjBErjZPFlvD%2BoeUGidi8UgdbQMgDuy%2F1mqpvccPu3yqvoqbKnG%2B1awphbfWaDFImZqt%2BZB%2Biz8zgehg016ETyGb%2Bj%2FHByu8piiXAXP7ixyGkud3KjbvRxkVx9UBBWNr9weo7D18Abw%3D%3D";
+        window.__genspark_locale = "pt-BR";
+        window.__genspark_token = "To/BnjzloZ3UfQdcSaYfDln3fHFOPLqNDrlksTAphQFTMIhcoQCcVY0SaS4KlTsXBQ0QqLkKPd/x2rtR8GWCVcMoBsl0UjsS0q/n/nIy8XMqildihm39w35RyhnPawAq2j8wv4i5tv08IHA/yIVrL6WBqr+WyBfa1tGKCr2mzoSYm7x43+X2vuUeGrOH1+VoC47hxURK/l+cZXqEmiklRgLr2ncS/Qk5Gv/8v1GDcuGNIYGV7ZHz98duyd82me4NDcw9xmQM4XWOYoPPyAAfmVDnc/+kBTAdPcIhcxdKZ3n9fKGcLYpAQWSlFSubN+t44Pyhlz/Pw7fYRVU9yJaA+LMNlm5FoAwT1C9YlZYjjbP93aUhmgi00xOYEBVRAf2FoiZaZeMwbgrCjBErjZPFlvD+oeUGidi8UgdbQMgDuy/1mqpvccPu3yqvoqbKnG+1awphbfWaDFImZqt+ZB+iz8zgehg016ETyGb+j/HByu8piiXAXP7ixyGkud3KjbvRxkVx9UBBWNr9weo7D18Abw==";
+    </script>
+    
+        <script id="html_badge_script2" src="https://www.genspark.ai/html_badge.js"></script>
+        
